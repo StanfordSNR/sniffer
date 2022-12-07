@@ -125,7 +125,6 @@ void program_body( const string& device_name )
   // bind to given device (identified by name, but bind by index);
   sockaddr_ll addr_ll {};
   addr_ll.sll_family = AF_PACKET;
-  addr_ll.sll_protocol = htobe16( ETH_P_ALL );
   addr_ll.sll_ifindex = device_name_to_index( device_name );
   Address addr { reinterpret_cast<sockaddr*>( &addr_ll ), sizeof( addr_ll ) };
   sock.bind( addr );
