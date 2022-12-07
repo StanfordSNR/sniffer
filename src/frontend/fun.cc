@@ -26,6 +26,8 @@ string_view packet_type_to_string( const int packet_type )
   switch ( packet_type ) {
     case PACKET_HOST:
       return "incoming";
+    case PACKET_OTHERHOST:
+      return "incoming (to somebody else)";
     case PACKET_OUTGOING:
       return "outgoing";
     default:
