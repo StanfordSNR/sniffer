@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <utility>
@@ -67,5 +68,17 @@ public:
   socklen_t size() const { return _size; }
   //! Const pointer to the underlying socket address storage.
   operator const sockaddr*() const { return _address; }
+  //! Convert to arbitrary sockaddr type
+  template<typename sockaddr_type>
+  const sockaddr_type* cast( const int family ) const
+  {
+    const sockaddr* raw = _address;
+    if ( size() <= sizeof( sockaddr_type ) and ( raw->sa_family == family ) ) {
+      return reinterpret_cast<const sockaddr_type*>( raw );
+    } else {
+      throw std::runtime_error( "sockaddr conversion failure" );
+    }
+  }
+
   //!@}
 };

@@ -19,22 +19,27 @@ private:
 
 protected:
   //! Construct via [socket(2)](\ref man2::socket)
-  Socket( const int domain, const int type );
+  Socket( const int domain, const int type, const int protocol = 0 );
 
   //! Construct from a file descriptor.
-  Socket( FileDescriptor&& fd, const int domain, const int type );
+  Socket( FileDescriptor&& fd, const int domain, const int type, const int protocol = 0 );
 
   //! Wrapper around [getsockopt(2)](\ref man2::getsockopt)
   template<typename option_type>
   socklen_t getsockopt( const int level, const int option, option_type& option_value ) const;
 
-  //! Wrapper around [setsockopt(2)](\ref man2::setsockopt)
+  //! Wrappers around [setsockopt(2)](\ref man2::setsockopt)
   template<typename option_type>
   void setsockopt( const int level, const int option, const option_type& option_value );
+
+  void setsockopt( const int level, const int option, const std::string_view option_val );
 
 public:
   //! Bind a socket to a specified address with [bind(2)](\ref man2::bind), usually for listen/accept
   void bind( const Address& address );
+
+  //! Bind a socket to a specified device
+  void bind_to_device( const std::string_view device_name );
 
   //! Connect a socket to a specified peer address with [connect(2)](\ref man2::connect)
   void connect( const Address& address );
@@ -54,22 +59,11 @@ public:
   void throw_if_error() const;
 };
 
-//! A wrapper around [UDP sockets](\ref man7::udp)
-class UDPSocket : public Socket
+class DatagramSocket : public Socket
 {
-protected:
-  //! \brief Construct from FileDescriptor (used by TCPOverUDPSocketAdapter)
-  //! \param[in] fd is the FileDescriptor from which to construct
-  explicit UDPSocket( FileDescriptor&& fd )
-    : Socket( std::move( fd ), AF_INET, SOCK_DGRAM )
-  {}
+  using Socket::Socket;
 
 public:
-  //! Default: construct an unbound, unconnected UDP socket
-  UDPSocket()
-    : Socket( AF_INET, SOCK_DGRAM )
-  {}
-
   //! Receive a datagram and the Address of its sender (caller can allocate storage)
   void recv( Address& source_address, string_span& payload, const size_t mtu = 2048 );
 
@@ -78,6 +72,21 @@ public:
 
   //! Send datagram to the socket's connected address (must call connect() first)
   void send( const std::string_view payload );
+};
+
+//! A wrapper around [UDP sockets](\ref man7::udp)
+class UDPSocket : public DatagramSocket
+{
+  //! \param[in] fd is the FileDescriptor from which to construct
+  explicit UDPSocket( FileDescriptor&& fd )
+    : DatagramSocket( std::move( fd ), AF_INET, SOCK_DGRAM )
+  {}
+
+public:
+  //! Default: construct an unbound, unconnected UDP socket
+  UDPSocket()
+    : DatagramSocket( AF_INET, SOCK_DGRAM )
+  {}
 };
 
 //! A wrapper around [TCP sockets](\ref man7::tcp)
@@ -101,4 +110,15 @@ public:
 
   //! Accept a new incoming connection
   TCPSocket accept();
+};
+
+//! A wrapper around [packet sockets](\ref man7:packet)
+class PacketSocket : public DatagramSocket
+{
+public:
+  PacketSocket( const int type, const int protocol )
+    : DatagramSocket( AF_PACKET, type, protocol )
+  {}
+
+  void set_promiscuous();
 };

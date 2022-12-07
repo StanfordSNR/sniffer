@@ -3,7 +3,10 @@
 #include "exception.hh"
 
 #include <cstddef>
+#include <linux/if_packet.h>
+#include <net/if.h>
 #include <stdexcept>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 using namespace std;
@@ -11,15 +14,16 @@ using namespace std;
 // default constructor for socket of (subclassed) domain and type
 //! \param[in] domain is as described in [socket(7)](\ref man7::socket), probably `AF_INET` or `AF_UNIX`
 //! \param[in] type is as described in [socket(7)](\ref man7::socket)
-Socket::Socket( const int domain, const int type )
-  : FileDescriptor( CheckSystemCall( "socket", socket( domain, type, 0 ) ) )
+Socket::Socket( const int domain, const int type, const int protocol )
+  : FileDescriptor( ::CheckSystemCall( "socket", socket( domain, type, protocol ) ) )
 {}
 
 // construct from file descriptor
 //! \param[in] fd is the FileDescriptor from which to construct
 //! \param[in] domain is `fd`'s domain; throws std::runtime_error if wrong value is supplied
 //! \param[in] type is `fd`'s type; throws std::runtime_error if wrong value is supplied
-Socket::Socket( FileDescriptor&& fd, const int domain, const int type )
+//! \param[in] protocol is `fd`'s protocol; throws std::runtime_error if wrong value is supplied
+Socket::Socket( FileDescriptor&& fd, const int domain, const int type, const int protocol )
   : FileDescriptor( move( fd ) )
 {
   int actual_value;
@@ -35,6 +39,12 @@ Socket::Socket( FileDescriptor&& fd, const int domain, const int type )
   len = getsockopt( SOL_SOCKET, SO_TYPE, actual_value );
   if ( ( len != sizeof( actual_value ) ) or ( actual_value != type ) ) {
     throw runtime_error( "socket type mismatch" );
+  }
+
+  // verify protocol
+  len = getsockopt( SOL_SOCKET, SO_PROTOCOL, actual_value );
+  if ( ( len != sizeof( actual_value ) ) or ( actual_value != protocol ) ) {
+    throw runtime_error( "socket protocol mismatch" );
   }
 }
 
@@ -72,6 +82,11 @@ void Socket::bind( const Address& address )
   CheckSystemCall( "bind", ::bind( fd_num(), address, address.size() ) );
 }
 
+void Socket::bind_to_device( const string_view device_name )
+{
+  setsockopt( SOL_SOCKET, SO_BINDTODEVICE, device_name );
+}
+
 // connect socket to a specified peer address
 //! \param[in] address is the peer's Address
 void Socket::connect( const Address& address )
@@ -101,12 +116,12 @@ void Socket::shutdown( const int how )
 }
 
 //! \note If `mtu` is too small to hold the received datagram, this method throws a std::runtime_error
-void UDPSocket::recv( Address& source_address, string_span& payload, const size_t mtu )
+void DatagramSocket::recv( Address& source_address, string_span& payload, const size_t mtu )
 {
   // receive source address and payload
   Address::Raw datagram_source_address;
   if ( payload.size() < mtu ) {
-    throw std::runtime_error( "UDPSocket::recv: payload storage smaller than MTU" );
+    throw std::runtime_error( "DatagramSocket::recv: payload storage smaller than MTU" );
   }
 
   socklen_t fromlen = sizeof( datagram_source_address );
@@ -123,14 +138,14 @@ void UDPSocket::recv( Address& source_address, string_span& payload, const size_
   payload = payload.substr( 0, recv_len );
 }
 
-void UDPSocket::sendto( const Address& destination, const string_view payload )
+void DatagramSocket::sendto( const Address& destination, const string_view payload )
 {
   CheckSystemCall( "sendto",
                    ::sendto( fd_num(), payload.data(), payload.length(), 0, destination, destination.size() ) );
   register_write();
 }
 
-void UDPSocket::send( const string_view payload )
+void DatagramSocket::send( const string_view payload )
 {
   CheckSystemCall( "send", ::send( fd_num(), payload.data(), payload.length(), 0 ) );
   register_write();
@@ -172,6 +187,12 @@ void Socket::setsockopt( const int level, const int option, const option_type& o
   CheckSystemCall( "setsockopt", ::setsockopt( fd_num(), level, option, &option_value, sizeof( option_value ) ) );
 }
 
+// setsockopt with size only known at runtime
+void Socket::setsockopt( const int level, const int option, const string_view option_val )
+{
+  CheckSystemCall( "setsockopt", ::setsockopt( fd_num(), level, option, option_val.data(), option_val.size() ) );
+}
+
 // allow local address to be reused sooner, at the cost of some robustness
 //! \note Using `SO_REUSEADDR` may reduce the robustness of your application
 void Socket::set_reuseaddr()
@@ -190,4 +211,12 @@ void Socket::throw_if_error() const
   if ( socket_error ) {
     throw unix_error( "socket error", socket_error );
   }
+}
+
+void PacketSocket::set_promiscuous()
+{
+  setsockopt(
+    SOL_PACKET,
+    PACKET_ADD_MEMBERSHIP,
+    packet_mreq { local_address().cast<sockaddr_ll>( AF_PACKET )->sll_ifindex, PACKET_MR_PROMISC, {}, {} } );
 }

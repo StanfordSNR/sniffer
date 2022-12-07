@@ -28,6 +28,15 @@ public:
   bool error() const { return error_; }
   void set_error() { error_ = true; }
 
+  void skip( const unsigned int len )
+  {
+    check_size( len );
+    if ( error() ) {
+      return;
+    }
+    input_.remove_prefix( len );
+  }
+
   template<typename T>
   void integer( T& out )
   {
