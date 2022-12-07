@@ -155,29 +155,25 @@ bool Address::operator==( const Address& other ) const
   return 0 == memcmp( &_address, &other._address, _size );
 }
 
-template<>
-int Address::sockaddr_family<sockaddr_in>()
-{
-  return AF_INET;
-}
+// address families that correspond to each sockaddr type
+template<typename sockaddr_type>
+constexpr int sockaddr_family = -1;
 
 template<>
-int Address::sockaddr_family<sockaddr_in6>()
-{
-  return AF_INET6;
-}
+constexpr int sockaddr_family<sockaddr_in> = AF_INET;
 
 template<>
-int Address::sockaddr_family<sockaddr_ll>()
-{
-  return AF_PACKET;
-}
+constexpr int sockaddr_family<sockaddr_in6> = AF_INET6;
 
+template<>
+constexpr int sockaddr_family<sockaddr_ll> = AF_PACKET;
+
+// safely cast the address to its underlying sockaddr type
 template<typename sockaddr_type>
 const sockaddr_type* Address::as() const
 {
   const sockaddr* raw = _address;
-  if ( sizeof( sockaddr_type ) < size() or ( raw->sa_family != sockaddr_family<sockaddr_type>() ) ) {
+  if ( sizeof( sockaddr_type ) < size() or raw->sa_family != sockaddr_family<sockaddr_type> ) {
     throw std::runtime_error( "Address::as() conversion failure" );
   }
 

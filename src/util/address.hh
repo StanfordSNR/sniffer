@@ -30,9 +30,6 @@ private:
   //! Constructor from ip/host, service/port, and hints to the resolver.
   Address( const std::string& node, const std::string& service, const addrinfo& hints );
 
-  template<typename sockaddr_type>
-  static int sockaddr_family();
-
 public:
   //! Construct by resolving a hostname and servicename.
   Address( const std::string& hostname, const std::string& service );
@@ -71,7 +68,7 @@ public:
   socklen_t size() const { return _size; }
   //! Const pointer to the underlying socket address storage.
   operator const sockaddr*() const { return _address; }
-  //! Convert to arbitrary sockaddr type
+  //! Safely convert to underlying sockaddr type
   template<typename sockaddr_type>
   const sockaddr_type* as() const;
 
