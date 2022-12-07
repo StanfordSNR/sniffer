@@ -1,11 +1,15 @@
 To compile:
 
+```
 $ cmake -S . -B build
 $ cmake --build build --parallel
+```
 
 To run the test program:
 
+```
 $ sudo ./build/src/frontend/fun [device_name]
+```
 
 Example output:
 
