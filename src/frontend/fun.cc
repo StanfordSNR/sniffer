@@ -94,7 +94,7 @@ constexpr unsigned int IP_HEADER_LEN = 20;
 
 void debug_print_packet( const Address& source, string_view contents )
 {
-  const sockaddr_ll* info = source.cast<sockaddr_ll>( AF_PACKET );
+  const sockaddr_ll* info = source.as<sockaddr_ll>();
 
   cerr << "Got packet:\n";
   cerr << "   direction=" << packet_type_to_string( info->sll_pkttype ) << "\n";

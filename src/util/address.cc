@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <array>
 #include <cstring>
+#include <linux/if_packet.h>
 #include <memory>
 #include <netdb.h>
 #include <stdexcept>
@@ -153,3 +154,36 @@ bool Address::operator==( const Address& other ) const
 
   return 0 == memcmp( &_address, &other._address, _size );
 }
+
+template<>
+int Address::sockaddr_family<sockaddr_in>()
+{
+  return AF_INET;
+}
+
+template<>
+int Address::sockaddr_family<sockaddr_in6>()
+{
+  return AF_INET6;
+}
+
+template<>
+int Address::sockaddr_family<sockaddr_ll>()
+{
+  return AF_PACKET;
+}
+
+template<typename sockaddr_type>
+const sockaddr_type* Address::as() const
+{
+  const sockaddr* raw = _address;
+  if ( sizeof( sockaddr_type ) < size() or ( raw->sa_family != sockaddr_family<sockaddr_type>() ) ) {
+    throw std::runtime_error( "Address::as() conversion failure" );
+  }
+
+  return reinterpret_cast<const sockaddr_type*>( raw );
+}
+
+template const sockaddr_in* Address::as<sockaddr_in>() const;
+template const sockaddr_in6* Address::as<sockaddr_in6>() const;
+template const sockaddr_ll* Address::as<sockaddr_ll>() const;

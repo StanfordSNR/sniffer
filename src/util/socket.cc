@@ -215,8 +215,7 @@ void Socket::throw_if_error() const
 
 void PacketSocket::set_promiscuous()
 {
-  setsockopt(
-    SOL_PACKET,
-    PACKET_ADD_MEMBERSHIP,
-    packet_mreq { local_address().cast<sockaddr_ll>( AF_PACKET )->sll_ifindex, PACKET_MR_PROMISC, {}, {} } );
+  setsockopt( SOL_PACKET,
+              PACKET_ADD_MEMBERSHIP,
+              packet_mreq { local_address().as<sockaddr_ll>()->sll_ifindex, PACKET_MR_PROMISC, {}, {} } );
 }
