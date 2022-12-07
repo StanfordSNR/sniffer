@@ -114,8 +114,7 @@ EventLoop::Result EventLoop::wait_next_event( const int timeout_ms )
 
         rule_fired = true;
         RecordScopeTimer<Timer::Category::Nonblock> record_timer {
-          _rule_categories.at( this_rule.category_id ).timer
-        };
+          _rule_categories.at( this_rule.category_id ).timer };
         this_rule.callback();
       }
 
@@ -228,8 +227,7 @@ EventLoop::Result EventLoop::wait_next_event( const int timeout_ms )
 
     if ( poll_ready ) {
       RecordScopeTimer<Timer::Category::Nonblock> record_timer {
-        _rule_categories.at( this_rule.category_id ).timer
-      };
+        _rule_categories.at( this_rule.category_id ).timer };
       // we only want to call callback if revents includes the event we asked for
       const auto count_before = this_rule.service_count();
       this_rule.callback();
