@@ -12,13 +12,53 @@
 
 using namespace std;
 
-int device_name_to_index( const string& device_name )
+int device_name_to_index( const string& device_name );
+void debug_print_packet( const Address& source, string_view contents );
+
+void program_body( const string& device_name )
 {
-  unsigned int ret = if_nametoindex( device_name.c_str() );
-  if ( ret == 0 ) {
-    throw unix_error( "if_nametoindex" );
+  // construct raw socket
+  PacketSocket sock { SOCK_RAW, htobe16( ETH_P_ALL ) };
+
+  // bind to given device (identified by name, but bind by index);
+  sockaddr_ll addr_ll {};
+  addr_ll.sll_family = AF_PACKET;
+  addr_ll.sll_ifindex = device_name_to_index( device_name );
+  Address addr { reinterpret_cast<sockaddr*>( &addr_ll ), sizeof( addr_ll ) };
+  sock.bind( addr );
+
+  // set interface to promiscuous capture
+  sock.set_promiscuous();
+
+  // receive each packet into a buffer
+  array<char, 65536> buffer;
+
+  while ( not sock.eof() ) {
+    string_span buffer_span { buffer.data(), buffer.size() };
+    sock.recv( addr, buffer_span, 65536 );
+    // buffer_span has now been resized to the length of the received packet
+    debug_print_packet( addr, buffer_span );
   }
-  return ret;
+}
+
+int main( int argc, char* argv[] )
+{
+  try {
+    if ( argc < 0 ) {
+      abort();
+    }
+
+    if ( argc != 2 ) {
+      throw runtime_error( "Usage: "s + argv[0] + " device_name" );
+    }
+
+    program_body( argv[1] );
+  } catch ( const exception& e ) {
+    cerr << e.what() << "\n";
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
 }
 
 string_view packet_type_to_string( const int packet_type )
@@ -117,48 +157,11 @@ void debug_print_packet( const Address& source, string_view contents )
   cerr << "\n";
 }
 
-void program_body( const string& device_name )
+int device_name_to_index( const string& device_name )
 {
-  // construct socket
-  PacketSocket sock { SOCK_RAW, htobe16( ETH_P_ALL ) };
-
-  // bind to given device (identified by name, but bind by index);
-  sockaddr_ll addr_ll {};
-  addr_ll.sll_family = AF_PACKET;
-  addr_ll.sll_ifindex = device_name_to_index( device_name );
-  Address addr { reinterpret_cast<sockaddr*>( &addr_ll ), sizeof( addr_ll ) };
-  sock.bind( addr );
-
-  // set interface to promiscuous capture
-  sock.set_promiscuous();
-
-  // receive each packet into a buffer
-  array<char, 65536> buffer;
-
-  while ( not sock.eof() ) {
-    string_span buffer_span { buffer.data(), buffer.size() };
-    sock.recv( addr, buffer_span, 65536 );
-    // buffer_span has now been resized to the length of the received packet
-    debug_print_packet( addr, buffer_span );
+  unsigned int ret = if_nametoindex( device_name.c_str() );
+  if ( ret == 0 ) {
+    throw unix_error( "if_nametoindex" );
   }
-}
-
-int main( int argc, char* argv[] )
-{
-  try {
-    if ( argc < 0 ) {
-      abort();
-    }
-
-    if ( argc != 2 ) {
-      throw runtime_error( "Usage: "s + argv[0] + " device_name" );
-    }
-
-    program_body( argv[1] );
-  } catch ( const exception& e ) {
-    cerr << e.what() << "\n";
-    return EXIT_FAILURE;
-  }
-
-  return EXIT_SUCCESS;
+  return ret;
 }
