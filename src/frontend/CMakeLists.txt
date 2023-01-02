@@ -4,3 +4,4 @@ macro (add_exec name)
 endmacro (add_exec)
 
 add_exec(fun)
+add_exec(blastudp)
