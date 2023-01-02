@@ -5,3 +5,4 @@ endmacro (add_exec)
 
 add_exec(fun)
 add_exec(blastudp)
+add_exec(receiveudp)
